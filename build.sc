@@ -2,7 +2,7 @@ import mill._, scalalib._, scalajslib._, scalanativelib._, publish._
 
 val dottyVersions = sys.props.get("dottyVersion").toList
 
-val scalaVersions = "2.12.13" :: "2.13.4" :: dottyVersions
+val scalaVersions = "2.12.13" :: "2.13.4" :: "3.0.0-RC1" :: dottyVersions
 val scala2Versions = scalaVersions.filter(_.startsWith("2."))
 
 val scalaJSVersions = for {
@@ -36,14 +36,18 @@ trait ScalatagsPublishModule extends PublishModule {
 }
 
 trait Common extends CrossScalaModule {
+  def isDotty = !crossScalaVersion.startsWith("2")
   def millSourcePath = super.millSourcePath / offset
   def ivyDeps = Agg(
     ivy"com.lihaoyi::sourcecode::0.2.3",
     ivy"com.lihaoyi::geny::0.6.5",
   )
-  def compileIvyDeps = Agg(
-    ivy"org.scala-lang:scala-reflect:${scalaVersion()}",
-  )
+  def compileIvyDeps = T {
+    if (!isDotty) Agg(
+      ivy"org.scala-lang:scala-reflect:${crossScalaVersion}",
+    ) else Agg()
+  }
+
   def offset: os.RelPath = os.rel
   def sources = T.sources(
     super.sources()
@@ -83,6 +87,8 @@ object scalatags extends Module {
   object jvm extends Cross[JvmScalatagsModule](scalaVersions:_*)
   class JvmScalatagsModule(val crossScalaVersion: String)
     extends Common with ScalaModule with ScalatagsPublishModule {
+
+    def scalacOptions = Seq("-language:implicitConversions")
 
     object test extends Tests with CommonTestModule{
       def crossScalaVersion = JvmScalatagsModule.this.crossScalaVersion
